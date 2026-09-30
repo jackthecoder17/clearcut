@@ -63,16 +63,20 @@ function load() {
   return remover
 }
 
-async function removeBackground(input: RawImage) {
+/** Returns the cutout and how long inference took, not counting the one-time model download and startup. */
+async function removeBackground(input: RawImage): Promise<{ out: RawImage; ms: number }> {
   const current = await load()
+  let started = performance.now()
   try {
-    return await current.run(input)
+    return { out: await current.run(input), ms: performance.now() - started }
   } catch (err) {
     // Some GPUs load the model but can't run it; fall back to the CPU model and retry once.
     if (current.device !== "webgpu") throw err
     console.warn("WebGPU run failed, using the CPU model", err)
     remover = create(CPU)
-    return (await remover).run(input)
+    const cpu = await remover
+    started = performance.now()
+    return { out: await cpu.run(input), ms: performance.now() - started }
   }
 }
 
@@ -89,10 +93,10 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
   queue = queue.then(async () => {
     try {
       const input = await RawImage.fromBlob(msg.file)
-      const started = performance.now()
-      const out = (await removeBackground(input)).rgba()
+      const result = await removeBackground(input)
+      const out = result.out.rgba()
       post(
-        { type: "result", id: msg.id, width: out.width, height: out.height, data: out.data as Uint8ClampedArray, ms: performance.now() - started },
+        { type: "result", id: msg.id, width: out.width, height: out.height, data: out.data as Uint8ClampedArray, ms: result.ms },
         [out.data.buffer as ArrayBuffer]
       )
     } catch (err) {

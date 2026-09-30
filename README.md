@@ -4,7 +4,7 @@
 
 Drop in a photo and get a clean cutout in seconds. An open-source AI model runs on your own device, so your images never leave your computer. No sign-up, no watermark, no limits.
 
-**▶ Try it:** https://clearcut.vercel.app _(link updated after the first deploy)_
+**▶ Try it:** https://clearcut-red-rho.vercel.app
 
 Built with **Next.js**, **shadcn/ui** and **[Transformers.js](https://github.com/huggingface/transformers.js)**.
 
@@ -31,6 +31,8 @@ Built with **Next.js**, **shadcn/ui** and **[Transformers.js](https://github.com
 3. **Compositing.** The main thread draws the cutout over the chosen background on a canvas, which is used for both the preview and the download.
 
 Images are processed one at a time so the model session is never shared between runs.
+
+**Speed.** The site sends `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: credentialless` (see `next.config.ts`). That makes the page cross-origin isolated, which lets ONNX Runtime use every CPU core instead of one. On an 8-core laptop without WebGPU this took a sample photo from about 12 seconds to about 3.5.
 
 ## Tech stack
 
@@ -73,7 +75,7 @@ Open http://localhost:3000. The first image triggers a one-time model download.
 
 ## Deploy
 
-Import the repo at [vercel.com/new](https://vercel.com/new). No settings or environment variables are needed.
+Hosted on Vercel with the GitHub repo connected, so every push to `main` deploys to production. To run your own copy, import the repo at [vercel.com/new](https://vercel.com/new). No settings or environment variables are needed. If you host it elsewhere, keep the two headers from `next.config.ts` for multi-threaded CPU inference.
 
 ## License
 
