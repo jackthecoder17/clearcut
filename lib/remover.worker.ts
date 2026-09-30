@@ -25,7 +25,9 @@ type Adapter = { features: Set<string>; limits: { maxStorageBuffersPerShaderStag
 
 async function gpuOption(): Promise<Option | null> {
   const gpu = (navigator as Navigator & { gpu?: { requestAdapter(): Promise<Adapter | null> } }).gpu
-  const adapter = await gpu?.requestAdapter().catch(() => null)
+  // requestAdapter() can hang on some setups (headless browsers, broken drivers), so don't wait on it forever.
+  const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000))
+  const adapter = gpu ? await Promise.race([gpu.requestAdapter().catch(() => null), timeout]) : null
   if (!adapter) return null
   if (adapter.limits.maxStorageBuffersPerShaderStage < MIN_STORAGE_BUFFERS) {
     console.info(`WebGPU skipped: GPU allows ${adapter.limits.maxStorageBuffersPerShaderStage} storage buffers per shader`)
@@ -80,6 +82,21 @@ async function removeBackground(input: RawImage): Promise<{ out: RawImage; ms: n
   }
 }
 
+// Models sometimes return a low-confidence mask where the subject is only partly opaque
+// (common with illustrations), which makes it look faded over the checkerboard. This curve
+// makes anything the model is mostly sure about fully solid, drops faint haze to transparent,
+// and keeps a smooth ramp in between so hair and soft edges stay natural.
+const ALPHA_LOW = 0.12
+const ALPHA_HIGH = 0.5
+const ALPHA_CURVE = new Uint8ClampedArray(256).map((_, i) => {
+  const t = Math.min(1, Math.max(0, (i / 255 - ALPHA_LOW) / (ALPHA_HIGH - ALPHA_LOW)))
+  return Math.round(t * t * (3 - 2 * t) * 255)
+})
+
+function firmUpAlpha(rgba: Uint8ClampedArray) {
+  for (let i = 3; i < rgba.length; i += 4) rgba[i] = ALPHA_CURVE[rgba[i]]
+}
+
 // Process one image at a time; model sessions don't like concurrent runs.
 let queue: Promise<unknown> = Promise.resolve()
 
@@ -95,6 +112,7 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
       const input = await RawImage.fromBlob(msg.file)
       const result = await removeBackground(input)
       const out = result.out.rgba()
+      firmUpAlpha(out.data as Uint8ClampedArray)
       post(
         { type: "result", id: msg.id, width: out.width, height: out.height, data: out.data as Uint8ClampedArray, ms: result.ms },
         [out.data.buffer as ArrayBuffer]

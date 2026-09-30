@@ -32,9 +32,9 @@ import { ThemeToggle } from "@/components/theme-toggle"
 const SAMPLE_BASE = "https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main"
 const SAMPLES = [
   { file: "portrait-of-woman_small.jpg", label: "Portrait" },
-  { file: "corgi.jpg", label: "Dog" },
-  { file: "butterfly.jpg", label: "Butterfly" },
   { file: "tiger.jpg", label: "Tiger" },
+  { file: "astronaut.png", label: "Astronaut" },
+  { file: "beetle.png", label: "Car" },
 ]
 
 const COLORS = ["#ffffff", "#111111", "#f4efe6", "#ffd8e1", "#cfe6ff", "#d6f5e2"]

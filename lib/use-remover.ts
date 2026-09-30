@@ -54,6 +54,13 @@ export function useRemover() {
           break
       }
     }
+    // If the worker itself crashes (a script that fails to load, an uncaught error), say so instead of waiting forever.
+    worker.onerror = (e) => {
+      const message = e.message || "The AI worker failed to start."
+      console.error("Worker error:", message, e.filename, e.lineno)
+      setModel({ status: "error", message })
+      setItems((list) => list.map((it) => (it.status === "done" ? it : { ...it, status: "error", error: message })))
+    }
     workerRef.current = worker
     return worker
   }, [patch])
